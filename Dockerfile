@@ -10,12 +10,12 @@ COPY . .
 # We don't need the c-lightning plugin in this container,
 # because for c-lightning, the plugin needs to be in the same
 # container as c-lightning itself
-RUN make -j$(nproc) lnd-release
+RUN make -j$(nproc) build
 
 FROM debian:bullseye-slim
 
 # Copy built binaries
-COPY --from=builder /peerswap/peerswapd /usr/bin
-COPY --from=builder /peerswap/pscli /usr/bin
+COPY --from=builder /peerswap/out/peerswapd /usr/bin
+COPY --from=builder /peerswap/out/pscli /usr/bin
 
 CMD ["/usr/bin/peerswapd"]
