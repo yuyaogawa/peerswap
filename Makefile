@@ -2,20 +2,28 @@ OUTDIR=./out
 PAYMENT_RETRY_TIME=10
 PEERSWAP_TEST_FILTER="peerswap"
 GIT_COMMIT=$(shell git rev-list -1 HEAD)
+
+INTEGRATION_TEST_ENV= \
+	RUN_INTEGRATION_TESTS=1 \
+	PAYMENT_RETRY_TIME=$(PAYMENT_RETRY_TIME) \
+	PEERSWAP_TEST_FILTER=$(PEERSWAP_TEST_FILTER)
+
+INTEGRATION_TEST_OPTS= \
+	-tags dev \
+	-tags fast_test \
+	-timeout=30m -v
+
 .DEFAULT_GOAL := release
 
-release: 
-	clean
-	lnd-release
-	cln-release
+release: lnd-release cln-release
 .PHONY: release
 
 build:
-	go build -tags dev -o $(OUTDIR)/peerswap-plugin ./cmd/peerswap-plugin/main.go
+	go build -tags dev -o $(OUTDIR)/peerswap-plugin -ldflags "-X main.GitCommit=$(GIT_COMMIT)" ./cmd/peerswap-plugin/main.go
 	chmod a+x $(OUTDIR)/peerswap-plugin
-	go build -o $(OUTDIR)/peerswapd ./cmd/peerswaplnd/peerswapd/main.go
+	go build -o $(OUTDIR)/peerswapd -ldflags "-X main.GitCommit=$(GIT_COMMIT)" ./cmd/peerswaplnd/peerswapd/main.go
 	chmod a+x $(OUTDIR)/peerswapd
-	go build -o $(OUTDIR)/pscli ./cmd/peerswaplnd/pscli/main.go
+	go build -o $(OUTDIR)/pscli -ldflags "-X main.GitCommit=$(GIT_COMMIT)" ./cmd/peerswaplnd/pscli/main.go
 	chmod a+x $(OUTDIR)/pscli
 .PHONY: build
 
@@ -32,44 +40,86 @@ test: build-with-fast-test
 .PHONY: test
 
 test-integration: build-with-fast-test
-	RUN_INTEGRATION_TESTS=1 PAYMENT_RETRY_TIME=$(PAYMENT_RETRY_TIME) PEERSWAP_TEST_FILTER=$(PEERSWAP_TEST_FILTER) go test -tags dev -tags fast_test -timeout=30m -v ./test 
+	${INTEGRATION_TEST_ENV} go test ${INTEGRATION_TEST_OPTS} ./test
+	${INTEGRATION_TEST_ENV} go test ${INTEGRATION_TEST_OPTS} ./lnd
 .PHONY: test-integration
 
 test-bitcoin-cln: build-with-fast-test
-	RUN_INTEGRATION_TESTS=1 PAYMENT_RETRY_TIME=$(PAYMENT_RETRY_TIME) PEERSWAP_TEST_FILTER=$(PEERSWAP_TEST_FILTER) go test -tags dev -tags fast_test -timeout=30m -v -run '^(Test_RestoreFromPassedCSV|Test_ClnCln_Bitcoin_SwapOut|Test_ClnCln_Bitcoin_SwapIn|Test_ClnLnd_Bitcoin_SwapOut|Test_ClnLnd_Bitcoin_SwapIn)$'' github.com/elementsproject/peerswap/test
+	${INTEGRATION_TEST_ENV} go test ${INTEGRATION_TEST_OPTS} \
+	-run '^('\
+	'Test_ClnCln_Bitcoin_SwapOut|'\
+	'Test_ClnCln_Bitcoin_SwapIn|'\
+	'Test_ClnLnd_Bitcoin_SwapOut|'\
+	'Test_ClnLnd_Bitcoin_SwapIn)'\
+	 ./test
 .PHONY: test-bitcoin-cln
 
 test-bitcoin-lnd: build-with-fast-test
-	RUN_INTEGRATION_TESTS=1 PAYMENT_RETRY_TIME=$(PAYMENT_RETRY_TIME) PEERSWAP_TEST_FILTER=$(PEERSWAP_TEST_FILTER) go test -tags dev -tags fast_test -timeout=30m -v -run '^(Test_LndLnd_Bitcoin_SwapOut|Test_LndLnd_Bitcoin_SwapIn|Test_LndCln_Bitcoin_SwapOut|Test_LndCln_Bitcoin_SwapIn)$'' github.com/elementsproject/peerswap/test
+	${INTEGRATION_TEST_ENV} go test ${INTEGRATION_TEST_OPTS} \
+	-run '^('\
+	'Test_LndLnd_Bitcoin_SwapOut|'\
+	'Test_LndLnd_Bitcoin_SwapIn|'\
+	'Test_LndCln_Bitcoin_SwapOut|'\
+	'Test_LndCln_Bitcoin_SwapIn)'\
+	 ./test
+	${INTEGRATION_TEST_ENV} go test $(INTEGRATION_TEST_OPTS) ./lnd
 .PHONY: test-liquid-lnd
 
 test-liquid-cln: build-with-fast-test
-	RUN_INTEGRATION_TESTS=1 PAYMENT_RETRY_TIME=$(PAYMENT_RETRY_TIME) PEERSWAP_TEST_FILTER=$(PEERSWAP_TEST_FILTER) go test -tags dev -tags fast_test -timeout=30m -v -run '^(Test_ClnCln_Liquid_SwapOut|Test_ClnCln_Liquid_SwapIn|Test_ClnLnd_Liquid_SwapOut|Test_ClnLnd_Liquid_SwapIn)$'' github.com/elementsproject/peerswap/test
+	${INTEGRATION_TEST_ENV} go test ${INTEGRATION_TEST_OPTS} \
+	-run '^('\
+	'Test_ClnCln_Liquid_SwapOut|'\
+	'Test_ClnCln_Liquid_SwapIn|'\
+	'Test_ClnLnd_Liquid_SwapOut|'\
+	'Test_ClnLnd_Liquid_SwapIn)'\
+	 ./test
 .PHONY: test-liquid-cln
 
 test-liquid-lnd: build-with-fast-test
-	RUN_INTEGRATION_TESTS=1 PAYMENT_RETRY_TIME=$(PAYMENT_RETRY_TIME) PEERSWAP_TEST_FILTER=$(PEERSWAP_TEST_FILTER) go test -tags dev -tags fast_test -timeout=30m -v -run '^(Test_LndLnd_Liquid_SwapOut|Test_LndLnd_Liquid_SwapIn|Test_LndCln_Liquid_SwapOut|Test_LndCln_Liquid_SwapIn)$'' github.com/elementsproject/peerswap/test
+	${INTEGRATION_TEST_ENV} go test ${INTEGRATION_TEST_OPTS} \
+	-run '^('\
+	'Test_LndLnd_Liquid_SwapOut|'\
+	'Test_LndLnd_Liquid_SwapIn|'\
+	'Test_LndCln_Liquid_SwapOut|'\
+	'Test_LndCln_Liquid_SwapIn)'\
+	 ./test
 .PHONY: test-liquid-lnd
 
 test-misc-integration: build-with-fast-test
-	RUN_INTEGRATION_TESTS=1 PAYMENT_RETRY_TIME=$(PAYMENT_RETRY_TIME) PEERSWAP_TEST_FILTER=$(PEERSWAP_TEST_FILTER) go test -tags dev -tags fast_test -timeout=30m -v -run '^(Test_GrpcReconnectStream|Test_GrpcRetryRequest)$'' github.com/elementsproject/peerswap/test
+	${INTEGRATION_TEST_ENV} go test ${INTEGRATION_TEST_OPTS} \
+	-run '^('\
+	'Test_GrpcReconnectStream|'\
+	'Test_GrpcRetryRequest|'\
+	'Test_ClnCln_MPP|'\
+	'Test_ClnLnd_MPP)'\
+	 ./test
 .PHONY: test-misc-integration
 
-lnd-release:
+lnd-release: clean-lnd
 	go install -ldflags "-X main.GitCommit=$(GIT_COMMIT)" ./cmd/peerswaplnd/peerswapd
 	go install -ldflags "-X main.GitCommit=$(GIT_COMMIT)" ./cmd/peerswaplnd/pscli
 .PHONY: lnd-release
 
 
-
-cln-release: 
+cln-release: clean-cln
+	# peerswap-plugin binary is not installed in GOPATH because it must be called by full pathname as a CLN plugin.
+	# You may choose to install it to any location you wish.
 	go build -o peerswap-plugin -ldflags "-X main.GitCommit=$(GIT_COMMIT)" ./cmd/peerswap-plugin/main.go
 .PHONY: cln-release
 
-clean:
+clean-cln:
+	# PeerSwap CLN builds
 	rm -f peerswap-plugin
-	rm -f peerswapd
-	rm -f pscli
+	rm -f out/peerswap-plugin
+.PHONY: clean-cln
+
+clean-lnd:
+	# PeerSwap LND builds
+	rm -f out/peerswapd
+	rm -f out/pscli
+.PHONY: clean-lnd
+
+clean: clean-cln clean-lnd
 .PHONY: clean
 
 proto:
