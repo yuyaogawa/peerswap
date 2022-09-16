@@ -131,7 +131,7 @@ func (s *SwapInReceiverInitAction) Execute(services *SwapServices, swap *SwapDat
 		SwapId:          swap.GetId(),
 		Pubkey:          hex.EncodeToString(swap.GetPrivkey().PubKey().SerializeCompressed()),
 		// todo: set premium
-		Premium: 0,
+		Premium: services.policy.GetPremium(),
 	}
 	swap.SwapInAgreement = agreementMessage
 
@@ -203,6 +203,7 @@ func (c *CreateAndBroadcastOpeningTransaction) Execute(services *SwapServices, s
 
 	// Construct memo
 	memo := fmt.Sprintf("peerswap %s %s %s %s", swap.GetChain(), INVOICE_CLAIM, swap.GetScidInBoltFormat(), swap.GetId())
+	// Create a claim invoice
 	payreq, err := services.lightning.GetPayreq((swap.GetAmount())*1000, preimage.String(), swap.GetId().String(), memo, INVOICE_CLAIM, swap.GetInvoiceExpiry())
 	if err != nil {
 		return swap.HandleError(err)
@@ -215,12 +216,19 @@ func (c *CreateAndBroadcastOpeningTransaction) Execute(services *SwapServices, s
 		blindingKeyHex = hex.EncodeToString(blindingKey.Serialize())
 	}
 
+	maxExpected := services.policy.GetMaxFee()
+	premium := swap.GetPremium()
+	if premium > maxExpected {
+		return swap.HandleError(errors.New(fmt.Sprintf("[Swapin] Fee is too damn high. Max expected: %v Received %v", maxExpected, premium)))
+	}
+
 	// Create the opening transaction
+	// Premium must be added for SwapIn
 	txHex, _, vout, err := wallet.CreateOpeningTransaction(&OpeningParams{
 		TakerPubkey:      swap.GetTakerPubkey(),
 		MakerPubkey:      swap.GetMakerPubkey(),
 		ClaimPaymentHash: preimage.Hash().String(),
-		Amount:           swap.GetAmount(),
+		Amount:           swap.GetAmount() + premium,
 		BlindingKey:      blindingKey,
 	})
 	if err != nil {
@@ -276,7 +284,7 @@ func (a StopSendMessageWithRetryWrapperAction) Execute(services *SwapServices, s
 // AwaitPaymentOrCsvAction checks if the invoice has been paid
 type AwaitPaymentOrCsvAction struct{}
 
-//todo this will never throw an error
+// todo this will never throw an error
 func (w *AwaitPaymentOrCsvAction) Execute(services *SwapServices, swap *SwapData) EventType {
 	onchain, wallet, _, err := services.getOnChainServices(swap.GetChain())
 	if err != nil {
@@ -308,7 +316,7 @@ func (w *AwaitFeeInvoicePayment) Execute(services *SwapServices, swap *SwapData)
 // AwaitCsvAction adds the opening tx to the txwatcher
 type AwaitCsvAction struct{}
 
-//todo this will never throw an error
+// todo this will never throw an error
 func (w *AwaitCsvAction) Execute(services *SwapServices, swap *SwapData) EventType {
 	onchain, wallet, _, err := services.getOnChainServices(swap.GetChain())
 	if err != nil {
@@ -350,6 +358,10 @@ func (c *CreateSwapOutFromRequestAction) Execute(services *SwapServices, swap *S
 	}
 
 	// todo replace with premium estimation https://github.com/elementsproject/peerswap/issues/109
+	premium := services.policy.GetPremium()
+	fmt.Printf("Premium %d", premium)
+	// This openingFee target conf is 6. However, the target conf for the acutal tx
+	// being created is 3. Look at CreateOpeningTransaction()
 	openingFee, err := wallet.GetFlatSwapOutFee()
 	if err != nil {
 		swap.LastErr = err
@@ -365,7 +377,7 @@ func (c *CreateSwapOutFromRequestAction) Execute(services *SwapServices, swap *S
 	// TODO: this should be looked at in the future
 	safetynet := uint64(20000)
 
-	if walletBalance < swap.GetAmount()+openingFee+safetynet {
+	if walletBalance < swap.GetAmount()+openingFee+safetynet+premium {
 		return swap.HandleError(errors.New("insufficient walletbalance"))
 	}
 
@@ -377,7 +389,7 @@ func (c *CreateSwapOutFromRequestAction) Execute(services *SwapServices, swap *S
 	if err != nil {
 		return swap.HandleError(err)
 	}
-	feeInvoice, err := services.lightning.GetPayreq(openingFee*1000, feepreimage.String(), swap.GetId().String(), memo, INVOICE_FEE, 600)
+	feeInvoice, err := services.lightning.GetPayreq((openingFee+premium)*1000, feepreimage.String(), swap.GetId().String(), memo, INVOICE_FEE, 600)
 	if err != nil {
 		return swap.HandleError(err)
 	}
@@ -426,7 +438,7 @@ func (c *ClaimSwapTransactionWithCsv) Execute(services *SwapServices, swap *Swap
 	return Event_ActionSucceeded
 }
 
-// ClaimSwapTransactionWithCsv spends the opening transaction with maker and taker Signatures
+// ClaimSwapTransactionWithCoop spends the opening transaction with maker and taker Signatures
 type ClaimSwapTransactionCoop struct{}
 
 func (c *ClaimSwapTransactionCoop) Execute(services *SwapServices, swap *SwapData) EventType {
@@ -498,7 +510,7 @@ func (s *TakerSendPrivkeyAction) Execute(services *SwapServices, swap *SwapData)
 // SwapInSenderCreateSwapAction creates the swap data
 type CreateSwapRequestAction struct{}
 
-//todo validate data
+// todo validate data
 func (a *CreateSwapRequestAction) Execute(services *SwapServices, swap *SwapData) EventType {
 	nextMessage, nextMessageType, err := MarshalPeerswapMessage(swap.GetRequest())
 	if err != nil {
@@ -551,11 +563,6 @@ func (s *SendMessageWithRetryAction) Execute(services *SwapServices, swap *SwapD
 type PayFeeInvoiceAction struct{}
 
 func (r *PayFeeInvoiceAction) Execute(services *SwapServices, swap *SwapData) EventType {
-	_, wallet, _, err := services.getOnChainServices(swap.GetChain())
-	if err != nil {
-		return swap.HandleError(err)
-	}
-
 	ll := services.lightning
 	// policy := services.policy
 	_, msatAmt, err := ll.DecodePayreq(swap.SwapOutAgreement.Payreq)
@@ -564,17 +571,12 @@ func (r *PayFeeInvoiceAction) Execute(services *SwapServices, swap *SwapData) Ev
 	}
 	swap.OpeningTxFee = msatAmt / 1000
 
-	expectedFee, err := wallet.GetFlatSwapOutFee()
-	if err != nil {
-		swap.LastErr = err
-		return swap.HandleError(err)
-	}
-
-	maxExpected := uint64((float64(expectedFee) * 3))
+	maxExpected := services.policy.GetMaxFee()
 
 	// if the fee invoice is larger than what we would expect, don't pay
+	// Currently it is 3 times the amount of GetFlatSwapOutFee
 	if swap.OpeningTxFee > maxExpected {
-		return swap.HandleError(errors.New(fmt.Sprintf("Fee is too damn high. Max expected: %v Received %v", maxExpected, swap.OpeningTxFee)))
+		return swap.HandleError(errors.New(fmt.Sprintf("[Swapout] Fee is too damn high. Max expected: %v Received %v", maxExpected, swap.OpeningTxFee)))
 	}
 
 	preimage, err := ll.PayInvoiceViaChannel(swap.SwapOutAgreement.Payreq, swap.GetScid())
@@ -589,7 +591,7 @@ func (r *PayFeeInvoiceAction) Execute(services *SwapServices, swap *SwapData) Ev
 // to the txwatcher.
 type AwaitTxConfirmationAction struct{}
 
-//todo this will not ever throw an error
+// todo this will not ever throw an error
 func (t *AwaitTxConfirmationAction) Execute(services *SwapServices, swap *SwapData) EventType {
 	txWatcher, wallet, validator, err := services.getOnChainServices(swap.GetChain())
 	if err != nil {

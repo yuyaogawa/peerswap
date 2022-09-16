@@ -33,6 +33,8 @@ type Policy interface {
 	IsPeerAllowed(peer string) bool
 	IsPeerSuspicious(peer string) bool
 	GetReserveOnchainMsat() uint64
+	GetPremium() uint64
+	GetMaxFee() uint64
 }
 
 type LightningClient interface {
