@@ -15,9 +15,34 @@ import (
 )
 
 const (
-	BitcoinCsv             = 1008
-	BitcoinMinConfs        = 3
+	// BitcoinCsv is the amount of blocks that is set to the script OP_CSV. It
+	// is the time in blocks after which the swap opening on-chain transaction
+	// can be reclaimed by the maker. With an average time to mine a block of
+	// 10m this value converts to 7 days.
+	BitcoinCsv = 1008
+
+	// BitcoinMinConfs is the amount of blocks after which it is assumed to be
+	// reasonably safe to pay the claim invoice.
+	BitcoinMinConfs = 3
+
+	// BitcoinFeeTargetBlocks is the amount of blocks that is used to estimate
+	// the on-chain fee.
 	BitcoinFeeTargetBlocks = 6
+
+	// BitcoinCsvSafetyLimit is the amount of blocks until which we assume it
+	// to be safe to pay for the claim invoice. After this time we assume that
+	// it is too close to the csv limit to pay the invoice.
+	BitcoinCsvSafetyLimit = BitcoinCsv / 2
+
+	// EstimatedOpeningTxSize in vByte is the estimated size of a swap opening
+	// transaction with a security margin. The estimate is meant to express the
+	// fees for most, but not all swap out opening tx fees. This is calculated
+	// as follows: The average amount of inputs is 3 with an expected type of
+	// P2WPKH that has a size of 68 vByte. The outputs are a P2WSH and a P2WPKH
+	// output with a total size of 84 vByte including the tx overhead. This
+	// leads to an expected size for the opening tx of (3*68 + 84) = 288 vByte.
+	// We add a security margin to this which leads to the size of 350 vByte.
+	EstimatedOpeningTxSize = 350
 
 	// This defines the absolute floor of the feerate. This will be the minimum
 	// feerate that will be used. The floor is set to 275 sat/kw so that we

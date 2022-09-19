@@ -19,6 +19,8 @@ service PeerSwap {
     rpc ReloadPolicyFile(ReloadPolicyFileRequest) returns (ReloadPolicyFileResponse);
     rpc AddPeer(AddPeerRequest) returns (AddPeerResponse);
     rpc RemovePeer(RemovePeerRequest) returns (RemovePeerResponse);
+    rpc AddSusPeer(AddPeerRequest) returns (AddPeerResponse);
+    rpc RemoveSusPeer(RemovePeerRequest) returns (RemovePeerResponse);
 
     // Liquid Stuff
     rpc LiquidGetAddress(GetAddressRequest) returns (GetAddressResponse);
@@ -55,6 +57,7 @@ message SwapOutRequest {
     uint64 channel_id = 1;
     uint64 swap_amount = 2;
     string asset = 3;
+    bool force = 4;
 }
 
 message SwapOutResponse {
@@ -65,6 +68,7 @@ message SwapInRequest {
     uint64 channel_id = 1;
     uint64 swap_amount = 2;
     string asset = 3;
+    bool force = 4;
 }
 
 message SwapResponse {
@@ -183,6 +187,7 @@ message Policy {
     uint64 reserve_onchain_msat = 1;
     bool accept_all_peers = 2;
     repeated string peer_allow_list = 3;
+    repeated string suspicious_peer_list = 4;
 }
 
 message AllowSwapRequestsRequest {

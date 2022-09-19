@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "peerswaprpc.proto",
+    "title": "peerswaprpc/peerswaprpc.proto",
     "version": "version not set"
   },
   "tags": [
@@ -185,6 +185,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "suspiciousPeerList": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -315,14 +321,11 @@
     "protobufAny": {
       "type": "object",
       "properties": {
-        "typeUrl": {
+        "@type": {
           "type": "string"
-        },
-        "value": {
-          "type": "string",
-          "format": "byte"
         }
-      }
+      },
+      "additionalProperties": {}
     },
     "rpcStatus": {
       "type": "object",

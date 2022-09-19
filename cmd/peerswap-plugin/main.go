@@ -89,7 +89,7 @@ func run() error {
 	}()
 	<-initChan
 	log.SetLogger(clightning.NewGlightninglogger(lightningPlugin.Plugin))
-	log.Infof("PeerSwap Initialized, running PeerSwap commit %s", GitCommit)
+	log.Infof("PeerSwap CLN starting up with commit %s", GitCommit)
 	config, err := lightningPlugin.GetConfig()
 	if err != nil {
 		return err
@@ -668,6 +668,15 @@ func setPanicLogger() (func() error, error) {
 	}
 
 	panicLogFile, err := os.OpenFile(filepath.Join(wd, "peerswap/peerswap-panic-log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = panicLogFile.WriteString("\n\nServer started " + time.Now().UTC().Format(time.RFC3339) + "\n")
+	if err != nil {
+		return nil, err
+	}
+	err = panicLogFile.Sync()
 	if err != nil {
 		return nil, err
 	}
