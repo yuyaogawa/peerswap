@@ -197,10 +197,24 @@ func (s *SwapData) GetScidInBoltFormat() string {
 
 func (s *SwapData) GetAmount() uint64 {
 	if s.SwapInRequest != nil {
+		// Premium must be added
+		fmt.Println("*** s.SwapInRequest.Amount ***")
+		fmt.Println(s.SwapInRequest.Amount)
 		return s.SwapInRequest.Amount
 	}
 	if s.SwapOutRequest != nil {
+		fmt.Println("*** s.SwapOutRequest.Amount ***")
+		fmt.Println(s.SwapOutRequest.Amount)
 		return s.SwapOutRequest.Amount
+	}
+	return 0
+}
+
+func (s *SwapData) GetPremium() uint64 {
+	if s.SwapInAgreement != nil {
+		fmt.Println("*** s.SwapInAgreement.Premium ***")
+		fmt.Println(s.SwapInAgreement.Premium)
+		return s.SwapInAgreement.Premium
 	}
 	return 0
 }
@@ -315,7 +329,7 @@ func (s *SwapData) GetOpeningParams() *OpeningParams {
 		TakerPubkey:      s.GetTakerPubkey(),
 		MakerPubkey:      s.GetMakerPubkey(),
 		ClaimPaymentHash: s.GetPaymentHash(),
-		Amount:           s.GetAmount(),
+		Amount:           s.GetAmount() + s.GetPremium(),
 		BlindingKey:      blindingKey,
 	}
 }

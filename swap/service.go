@@ -422,6 +422,8 @@ func (s *SwapService) OnSwapInRequestReceived(swapId *SwapId, peerId string, mes
 		return fmt.Errorf("already has an active swap on channel")
 	}
 
+	fmt.Print("*** OnSwapInRequestReceived ***")
+	fmt.Print(message)
 	if !s.allowSwapRequests {
 		return fmt.Errorf("rejecting all swaps")
 	}
@@ -435,7 +437,7 @@ func (s *SwapService) OnSwapInRequestReceived(swapId *SwapId, peerId string, mes
 	return err
 }
 
-// OnSwapInRequestReceived creates a new swap-out process and sends the event to the swap statemachine
+// OnSwapOutRequestReceived creates a new swap-out process and sends the event to the swap statemachine
 func (s *SwapService) OnSwapOutRequestReceived(swapId *SwapId, peerId string, message *SwapOutRequestMessage) error {
 	// check if a swap is already active on the channel
 	if s.hasActiveSwapOnChannel(message.Scid) {
@@ -466,6 +468,8 @@ func (s *SwapService) OnSwapInAgreementReceived(msg *SwapInAgreementMessage) err
 		return err
 	}
 
+	fmt.Print("*** Premium ***")
+	fmt.Print(msg.Premium)
 	done, err := swap.SendEvent(Event_SwapInSender_OnAgreementReceived, msg)
 	if err != nil {
 		return err

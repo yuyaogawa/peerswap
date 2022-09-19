@@ -19,6 +19,8 @@ const (
 	// can not be spent by incoming swap requests.
 	defaultReserveOnchainMsat uint64 = 0
 	defaultAcceptAllPeers            = false
+	defaultPremium            uint64 = 1000
+	defaultMaxFee             uint64 = 10000
 )
 
 // Global Mutex
@@ -58,14 +60,18 @@ type Policy struct {
 	PeerAllowlist      []string `long:"allowlisted_peers" description:"A list of peers that are allowed to send swap requests to the node."`
 	SuspiciousPeerList []string `long:"suspicious_peers" description:"A list of peers that acted suspicious and are not allowed to request swaps."`
 	AcceptAllPeers     bool     `long:"accept_all_peers" description:"Use with caution! If set, the peer allowlist is ignored and all incoming swap requests are allowed"`
+	Premium            uint64   `long:"premium" description:"The amout of sats that are received for swap requests."`
+	MaxFee             uint64   `long:"max_fee" description:"Max fee for swap"`
 }
 
 func (p *Policy) String() string {
-	str := fmt.Sprintf("reserve_onchain_msat: %d\nallowlisted_peers: %s\naccept_all_peers: %t\nsuspicious_peers: %s\n",
+	str := fmt.Sprintf("reserve_onchain_msat: %d\nallowlisted_peers: %s\naccept_all_peers: %t\nsuspicious_peers: %s\npremium:%d\nmax_fee:%d\n",
 		p.ReserveOnchainMsat,
 		p.PeerAllowlist,
 		p.AcceptAllPeers,
 		p.SuspiciousPeerList,
+		p.Premium,
+		p.MaxFee,
 	)
 	if p.AcceptAllPeers {
 		return fmt.Sprintf("%sCAUTION: Accept all incoming swap requests", str)
@@ -79,6 +85,8 @@ func (p *Policy) Get() Policy {
 		PeerAllowlist:      p.PeerAllowlist,
 		SuspiciousPeerList: p.SuspiciousPeerList,
 		AcceptAllPeers:     p.AcceptAllPeers,
+		Premium:            p.Premium,
+		MaxFee:             p.MaxFee,
 	}
 }
 
@@ -111,6 +119,14 @@ func (p *Policy) IsPeerSuspicious(peer string) bool {
 		}
 	}
 	return false
+}
+
+func (p *Policy) GetPremium() uint64 {
+	return p.Premium
+}
+
+func (p *Policy) GetMaxFee() uint64 {
+	return p.MaxFee
 }
 
 // ReloadFile reloads and and sets the policy
@@ -292,6 +308,8 @@ func DefaultPolicy() *Policy {
 		PeerAllowlist:      defaultPeerAllowlist,
 		SuspiciousPeerList: defaultSuspiciousPeerList,
 		AcceptAllPeers:     defaultAcceptAllPeers,
+		Premium:            defaultPremium,
+		MaxFee:             defaultMaxFee,
 	}
 }
 
