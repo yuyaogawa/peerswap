@@ -471,6 +471,8 @@ func (p *PeerswapServer) ReloadPolicyFile(ctx context.Context, request *ReloadPo
 		AcceptAllPeers:     pol.AcceptAllPeers,
 		PeerAllowList:      pol.PeerAllowlist,
 		SuspiciousPeerList: pol.SuspiciousPeerList,
+		Premium:            pol.Premium,
+		MaxFee:             pol.MaxFee,
 	}}, nil
 }
 

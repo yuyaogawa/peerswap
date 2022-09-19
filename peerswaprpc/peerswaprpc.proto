@@ -188,6 +188,8 @@ message Policy {
     bool accept_all_peers = 2;
     repeated string peer_allow_list = 3;
     repeated string suspicious_peer_list = 4;
+    uint64 premium = 5;
+    uint64 max_fee = 6;
 }
 
 message AllowSwapRequestsRequest {
